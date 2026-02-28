@@ -20,11 +20,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
+        // build participants section (bullet list or placeholder)
+        const participantsHTML = details.participants.length
+          ? `<ul class="participants-list">${details.participants
+              .map(
+                p =>
+                  `<li>${p} <span class="remove-participant" data-activity="${name}" data-email="${p}">&times;</span></li>`
+              )
+              .join("")}</ul>`
+          : `<p class="no-participants">No participants yet.</p>`;
+
         activityCard.innerHTML = `
           <h4>${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants-section">
+            <p><strong>Participants:</strong></p>
+            ${participantsHTML}
+          </div>
         `;
 
         activitiesList.appendChild(activityCard);
@@ -62,6 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        fetchActivities(); // refresh list to show new participant
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
@@ -78,6 +93,42 @@ document.addEventListener("DOMContentLoaded", () => {
       messageDiv.className = "error";
       messageDiv.classList.remove("hidden");
       console.error("Error signing up:", error);
+    }
+  });
+
+  // Delegate clicks on delete icons
+  activitiesList.addEventListener("click", async (e) => {
+    if (e.target && e.target.matches(".remove-participant")) {
+      const activityName = e.target.dataset.activity;
+      const email = e.target.dataset.email;
+
+      try {
+        const resp = await fetch(
+          `/activities/${encodeURIComponent(activityName)}/withdraw?email=${encodeURIComponent(
+            email
+          )}`,
+          { method: "POST" }
+        );
+
+        const data = await resp.json();
+        if (resp.ok) {
+          messageDiv.textContent = data.message;
+          messageDiv.className = "success";
+          fetchActivities(); // refresh list
+        } else {
+          messageDiv.textContent = data.detail || "Unable to remove participant";
+          messageDiv.className = "error";
+        }
+      } catch (err) {
+        console.error("Error removing participant:", err);
+        messageDiv.textContent = "Failed to update registration.";
+        messageDiv.className = "error";
+      }
+
+      messageDiv.classList.remove("hidden");
+      setTimeout(() => {
+        messageDiv.classList.add("hidden");
+      }, 5000);
     }
   });
 
